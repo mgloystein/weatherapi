@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"time"
 
-	weatherservice "github.com/mgloystein/weatherapp/service"
+	weatherservice "github.com/mgloystein/weatherapp/services"
 )
 
 const (

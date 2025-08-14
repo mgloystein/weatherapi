@@ -1,8 +1,9 @@
-package service
+package services
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -40,21 +41,14 @@ func NewWeatherService(client *http.Client, baseURL string) WeatherService {
 }
 
 func (ws *weatherService) GetCurrentWeather(ctx context.Context, req *WeatherRequest) (resp *WeatherResponse, err error) {
-	forecastURL, err := ws.getPoint(ctx, req.Latitude, req.Longitude)
+	forecastURL, err := ws.getPointURL(ctx, req.Latitude, req.Longitude)
 	if err != nil {
 		return nil, err
 	}
 	// fmt.Println("Forecast URL:", forecastURL)
-	apiReq, err := http.NewRequestWithContext(ctx, "GET", forecastURL, nil)
+	apiResp, err := ws.makeRequest(ctx, forecastURL)
 	if err != nil {
-		return nil, err
-	}
-	apiReq.Header.Set("Accept", "application/ld+json")
-	apiReq.Header.Set("User-Agent", "APITestGoWeatherClient/1.0")
-
-	apiResp, err := ws.client.Do(apiReq)
-	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, errors.New("failed to make API request"))
 	}
 	defer apiResp.Body.Close()
 
@@ -66,31 +60,22 @@ func (ws *weatherService) GetCurrentWeather(ctx context.Context, req *WeatherReq
 	return
 }
 
-func (ws *weatherService) getPoint(ctx context.Context, lat, lon float64) (string, error) {
+func (ws *weatherService) getPointURL(ctx context.Context, lat, lon float64) (string, error) {
 	url := fmt.Sprintf("%spoints/%.4f,%.4f", ws.baseURL, lat, lon)
 	// fmt.Println("Point URL:", url)
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	apiResp, err := ws.makeRequest(ctx, url)
 	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Accept", "application/ld+json")
-	req.Header.Set("User-Agent", "APITestGoWeatherClient/1.0")
-
-	resp, err := ws.client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get point data: status %d", resp.StatusCode)
+		return "", errors.Join(err, errors.New("failed to make API request"))
 	}
 
 	var result struct {
 		Forecast string `json:"forecast"`
 	}
-	data := []byte{}
-	data, err = io.ReadAll(resp.Body)
+	var data []byte
+	data, err = io.ReadAll(apiResp.Body)
+	if err != nil {
+		return "", errors.Join(err, errors.New("failed to read API response"))
+	}
 	// fmt.Println("Raw Point Response:", string(data))
 	err = json.Unmarshal(data, &result)
 	if err != nil {
@@ -98,4 +83,19 @@ func (ws *weatherService) getPoint(ctx context.Context, lat, lon float64) (strin
 	}
 	// fmt.Println("Decoded Point Response:", result)
 	return result.Forecast, nil
+}
+
+func (ws *weatherService) makeRequest(ctx context.Context, url string) (*http.Response, error) {
+	apiReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	apiReq.Header.Set("Accept", "application/ld+json")
+	apiReq.Header.Set("User-Agent", "APITestGoWeatherClient/1.0")
+
+	apiResp, err := ws.client.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	return apiResp, nil
 }
