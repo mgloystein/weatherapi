@@ -23,19 +23,23 @@ type WeatherResponse struct {
 	}
 }
 
-type WeatherService struct {
+type WeatherService interface {
+	GetCurrentWeather(ctx context.Context, req *WeatherRequest) (resp *WeatherResponse, err error)
+}
+
+type weatherService struct {
 	client  *http.Client
 	baseURL string
 }
 
-func NewWeatherService(client *http.Client, baseURL string) *WeatherService {
-	return &WeatherService{
+func NewWeatherService(client *http.Client, baseURL string) WeatherService {
+	return &weatherService{
 		client:  client,
 		baseURL: baseURL,
 	}
 }
 
-func (ws *WeatherService) GetCurrentWeather(ctx context.Context, req *WeatherRequest) (resp *WeatherResponse, err error) {
+func (ws *weatherService) GetCurrentWeather(ctx context.Context, req *WeatherRequest) (resp *WeatherResponse, err error) {
 	forecastURL, err := ws.getPoint(ctx, req.Latitude, req.Longitude)
 	if err != nil {
 		return nil, err
@@ -62,7 +66,7 @@ func (ws *WeatherService) GetCurrentWeather(ctx context.Context, req *WeatherReq
 	return
 }
 
-func (ws *WeatherService) getPoint(ctx context.Context, lat, lon float64) (string, error) {
+func (ws *weatherService) getPoint(ctx context.Context, lat, lon float64) (string, error) {
 	url := fmt.Sprintf("%spoints/%.4f,%.4f", ws.baseURL, lat, lon)
 	// fmt.Println("Point URL:", url)
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
