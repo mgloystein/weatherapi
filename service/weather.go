@@ -1,4 +1,4 @@
-package services
+package service
 
 import (
 	"context"
@@ -7,6 +7,21 @@ import (
 	"io"
 	"net/http"
 )
+
+type WeatherRequest struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type WeatherResponse struct {
+	Properties struct {
+		Units string `json:"units"`
+	} `json:"properties"`
+	Periods []struct {
+		Forecast    string `json:"shortForecast"`
+		Temperature int32  `json:"temperature"`
+	}
+}
 
 type WeatherService struct {
 	client  *http.Client

@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/mgloystein/weatherapp/serives"
+	weatherservice "github.com/mgloystein/weatherapp/service"
 )
 
 const (
@@ -17,16 +17,21 @@ const (
 	apiUrl        = "https://api.weather.gov/"
 )
 
+type WeatherCharacterizationResponse struct {
+	Forecast         string `json:"forecast"`
+	Characterization string `json:"characterization"`
+}
+
 func main() {
 	mux := http.NewServeMux()
-	service := serives.NewWeatherService(http.DefaultClient, apiUrl)
+	service := weatherservice.NewWeatherService(http.DefaultClient, apiUrl)
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: mux,
 	}
 
 	mux.HandleFunc("/weather", func(w http.ResponseWriter, r *http.Request) {
-		var req *WeatherRequest
+		req := &weatherservice.WeatherRequest{}
 		ctx := context.Background()
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
@@ -44,7 +49,7 @@ func main() {
 		}
 
 		period := resp.Periods[0]
-		apiResp := &TestWeatherServiceResponse{
+		apiResp := &WeatherCharacterizationResponse{
 			Forecast: period.Forecast,
 		}
 
@@ -83,24 +88,4 @@ func main() {
 	defer cancel()
 
 	server.Shutdown(ctx)
-}
-
-type TestWeatherServiceResponse struct {
-	Forecast         string `json:"forecast"`
-	Characterization string `json:"characterization"`
-}
-
-type WeatherRequest struct {
-	Latitude  float64 `json:"latitude"`
-	Longitude float64 `json:"longitude"`
-}
-
-type WeatherResponse struct {
-	Properties struct {
-		Units string `json:"units"`
-	} `json:"properties"`
-	Periods []struct {
-		Forecast    string `json:"shortForecast"`
-		Temperature int32  `json:"temperature"`
-	}
 }
